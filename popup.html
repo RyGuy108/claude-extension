@@ -1,20 +1,31 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Task Colors for Claude</title><link rel="stylesheet" href="popup.css"></head>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Task Colors for Claude</title><link rel="stylesheet" href="popup.css"></head>
 <body>
-<header><div class="brand"><span class="brand-mark" aria-hidden="true">✳</span><span>task colors <small>for Claude</small></span></div><button id="add" class="icon" aria-label="Add task" title="Add task">＋</button></header>
+<header><div class="brand"><span class="brand-mark" aria-hidden="true">✳</span><span>task colors <small>Claude & beyond</small></span></div><button id="add" class="icon" aria-label="Add task" title="Add task">＋</button></header>
+<section class="intro"><p class="eyebrow">LESS SCATTER. MORE SPACE.</p><h1>A place for every thought.</h1><p id="summary">Gathering your tabs…</p></section>
+<nav aria-label="Workspace views"><button data-view="live" aria-current="page">Workspace</button><button data-view="saved">Saved <span id="saved-count">0</span></button><button data-view="themes">Themes</button></nav>
 <main>
-<section class="intro"><p class="eyebrow">A LITTLE SPACE TO THINK</p><h1>A place for every thought.</h1><p id="summary">Gathering your Claude tabs…</p></section>
-<section class="current"><span class="label">CURRENT TAB</span><p id="current-title">Loading…</p><label class="sr-only" for="current-task">Assign current tab to task</label><select id="current-task" disabled><option>Open a Claude tab to assign it</option></select></section>
-<div class="section-heading"><h2>Your tasks <span id="task-count"></span></h2><button id="organize" class="text-button">Organize by keywords ↗</button></div>
-<label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Find a conversation…" aria-label="Find a conversation"></label>
-<div id="tasks"></div><section id="unassigned"></section>
-<div id="status" role="status" aria-live="polite"></div>
+<section id="live-view">
+  <section class="current"><div><span class="label">CURRENT TAB</span><p id="current-title">Loading…</p></div><label class="sr-only" for="current-task">Assign current tab to task</label><select id="current-task" disabled><option>Choose a task</option></select></section>
+  <div id="focus-banner" class="banner" hidden><span id="focus-label"></span><button id="end-focus">Exit focus</button></div>
+  <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search tabs or websites…" aria-label="Search tabs or websites"><kbd>/</kbd></label>
+  <div class="filters"><div aria-label="Filter tabs"><button data-filter="all" aria-pressed="true">All tabs</button><button data-filter="claude" aria-pressed="false">Claude</button><button data-filter="outside" aria-pressed="false">Ungrouped</button></div><button id="organize" class="text-button" title="Apply title keywords to ungrouped Claude tabs">Auto-sort Claude</button></div>
+  <div id="bulk" class="banner" hidden><span id="selection-count"></span><label class="sr-only" for="bulk-task">Destination task</label><select id="bulk-task"></select><button id="move-selected">Move</button><button id="clear-selected" class="icon" aria-label="Clear selection">×</button></div>
+  <div id="tasks"></div><section id="unassigned"></section>
+</section>
+<section id="saved-view" hidden><div class="view-heading"><h2>Your saved collections</h2><p>Pick up where you left off. Saved links stay on this device.</p></div><div id="collections"></div></section>
+<section id="themes-view" hidden><div class="view-heading"><h2>Make space your own.</h2><p>Preview a look. Keep the colors you already know.</p></div><div id="theme-grid"></div><div class="theme-apply"><label class="toggle-label"><input id="apply-palette" type="checkbox">Also recolor my task groups</label><p class="help">Unchecked preserves your task colors. Chrome uses its nearest supported tab color.</p><button id="apply-theme" class="primary">Apply theme</button></div></section>
 </main>
-<footer><label class="toggle-label"><input id="auto" type="checkbox"><span>Auto-group new titles</span></label><span class="local">● Only on this device</span></footer>
-<dialog id="editor"><form id="task-form"><div class="dialog-heading"><h2 id="editor-title">A new task</h2><button type="button" id="cancel" class="icon" aria-label="Cancel">×</button></div><p class="muted">A familiar color. A clearer head.</p>
+<div id="status" role="status" aria-live="polite"></div>
+<footer><label class="toggle-label"><input id="auto" type="checkbox"><span>Auto-group Claude titles</span></label><span class="local">● Local & private</span></footer>
+<dialog id="editor"><form id="task-form"><div class="dialog-heading"><h2 id="editor-title">A new task</h2><button type="button" id="cancel" class="icon" aria-label="Cancel">×</button></div><p class="muted">Chats, research, and links. One familiar color.</p>
 <label>Task name<input id="name" required maxlength="32" placeholder="e.g. Reading & research"></label>
 <div class="color-row"><label>Your color<input id="color" type="color" value="#9878b5"></label><label>Hex code<input id="hex" pattern="#[a-fA-F0-9]{6}" maxlength="7" value="#9878b5" required></label></div>
-<label>Browser tab color<select id="native-color"></select></label><p class="help">Your exact color appears here. Chrome’s tab strip supports nine colors; choose the closest match.</p>
-<label>Title keywords <span class="optional">optional</span><textarea id="keywords" maxlength="300" rows="2" placeholder="research, reading, paper"></textarea></label><p class="help">Separate with commas. Only ungrouped tabs with one matching task are organized.</p><p id="form-error" role="alert"></p><div class="dialog-actions"><button type="button" id="delete" class="danger">Delete task</button><button type="submit" class="primary">Save task</button></div>
+<div id="palette-swatches" aria-label="Theme palette"></div>
+<label>Browser tab color<select id="native-color"></select></label><p class="help">Your exact color appears here. Chrome’s tab strip supports nine colors.</p>
+<label>Claude title keywords <span class="optional">optional</span><textarea id="keywords" maxlength="300" rows="2" placeholder="research, reading, paper"></textarea></label><p class="help">Comma-separated. Only uniquely matched, ungrouped Claude tabs are auto-sorted.</p><p id="form-error" role="alert"></p><div class="dialog-actions"><button type="button" id="delete" class="danger">Delete task</button><button type="submit" class="primary">Save task</button></div>
 </form></dialog>
-<script type="module" src="popup.js"></script></body></html>
+<dialog id="link-editor"><form id="link-form"><div class="dialog-heading"><h2>Add a research link</h2><button type="button" id="cancel-link" class="icon" aria-label="Cancel link">×</button></div><p id="link-task-name" class="muted"></p><label>Website URL<input id="link-url" type="url" placeholder="https://…" required></label><p class="help">Opens the link inside this task. Add any regular website or AI tool.</p><p id="link-error" role="alert"></p><div class="dialog-actions"><button class="primary" type="submit">Add link</button></div></form></dialog>
+<script type="module" src="popup.js"></script>
+</body></html>

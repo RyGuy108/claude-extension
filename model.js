@@ -22,3 +22,17 @@ export function matchTask(title, tasks) {
   const matches = tasks.filter(t => t.keywords.split(',').map(k=>k.trim().toLocaleLowerCase()).filter(Boolean).some(k=>words.includes(k)));
   return matches.length === 1 ? matches[0] : null;
 }
+export function isWebUrl(url) {
+  try { return ['https:', 'http:'].includes(new URL(url).protocol); } catch { return false; }
+}
+export function domain(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
+}
+export function nearestColor(hex) {
+  const rgb = value => [1,3,5].map(index => parseInt(value.slice(index,index+2),16));
+  const source = rgb(hex);
+  return Object.entries(COLORS).sort((a,b) => {
+    const distance = color => rgb(color).reduce((sum,value,index) => sum+(value-source[index])**2,0);
+    return distance(a[1])-distance(b[1]);
+  })[0][0];
+}

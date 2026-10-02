@@ -1,23 +1,65 @@
-// Run with NODE_PATH pointing to a Playwright installation. Uses synthetic tabs only.
+// Requires Playwright and Chrome. All tabs are synthetic; no personal browser data is accessed.
 const {chromium}=require('playwright');
-const http=require('node:http'),fs=require('node:fs'),path=require('node:path');
+const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
- const root=path.resolve(__dirname,'..');
- const server=http.createServer((req,res)=>{const name=path.join(root,req.url.split('?')[0]);try{res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(name));}catch{res.writeHead(404);res.end();}}).listen(0,'127.0.0.1');
- const browser=await chromium.launch({...(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {channel:'chrome'}),headless:true});
- try{
- const page=await browser.newPage({viewport:{width:420,height:600},deviceScaleFactor:2});const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript(()=>{
- const tasks=[{id:'medical',name:'Medical',color:'#9878b5',nativeColor:'purple',keywords:'anatomy'},{id:'todo',name:'To-do',color:'#77947a',nativeColor:'green',keywords:'checklist'},{id:'math',name:'Math',color:'#728fb4',nativeColor:'blue',keywords:'algebra'}];
- const state={tasks,autoGroup:false,tabs:[{id:1,title:'Understanding the cardiac cycle',groupId:10},{id:2,title:'A calmer plan for the week',groupId:11},{id:3,title:'Working through linear algebra',groupId:12},{id:4,title:'Ideas for a weekend project',groupId:-1}],groups:[{id:10,title:'Medical · Claude'},{id:11,title:'To-do · Claude'},{id:12,title:'Math · Claude'}]};
- const event={addListener(){}};window.chrome={runtime:{async sendMessage(m){if(m.type==='save'){const i=tasks.findIndex(t=>t.id===m.task.id);if(i<0)tasks.push({...m.task,id:'new'});else tasks[i]=m.task;}if(m.type==='assign')state.tabs.find(t=>t.id===m.tabId).groupId=state.groups.find(g=>g.title===tasks.find(t=>t.id===m.taskId)?.name+' · Claude')?.id??-1;if(m.type==='auto')state.autoGroup=m.enabled;return {ok:true,data:m.type==='state'?structuredClone(state):{count:0}};}},windows:{async getCurrent(){return {id:1};}},tabs:{async query(){return [{id:1}];},onUpdated:event,onRemoved:event,onCreated:event},tabGroups:{onUpdated:event},storage:{onChanged:event}};
- });
- await page.goto(`http://127.0.0.1:${server.address().port}/popup.html`);
- await page.getByText('Understanding the cardiac cycle',{exact:true}).first().waitFor();
- await page.screenshot({path:path.join(root,'docs/popup.png')});
- await page.getByRole('button',{name:'Add task',exact:true}).click();await page.getByLabel('Task name',{exact:true}).fill('Research');await page.getByLabel('Hex code').fill('#00aabb');await page.getByRole('button',{name:'Save task'}).click();await page.locator('.task-name').filter({hasText:'Research'}).waitFor();
- await page.getByRole('searchbox').fill('linear');if(await page.locator('.task').count()!==1)throw Error('Search did not filter groups');await page.getByRole('searchbox').fill('');
- await page.getByRole('button',{name:'Edit Medical'}).click();await page.screenshot({path:path.join(root,'docs/editor.png')});await page.getByRole('button',{name:'Cancel',exact:true}).click();
- if(await page.evaluate(()=>document.documentElement.scrollWidth>420))throw Error('Horizontal overflow');if(errors.length)throw Error(errors.join('\n'));console.log('UI smoke passed: rendering, add task, search, editor, layout, no script errors.');
- }finally{await browser.close();server.close();}
-})().catch(e=>{console.error(e);process.exit(1);});
+  const root=path.resolve(__dirname,'..');
+  const server=http.createServer((req,res)=>{
+    const name=path.resolve(root,'.'+req.url.split('?')[0]);
+    if(!name.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}
+    try{
+      res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html');
+      let content=fs.readFileSync(name);
+      if(name.endsWith('popup.html'))content=content.toString().replace('src="popup.js"','src="tests/browser-fixture.js"');
+      res.end(content);
+    }catch{res.writeHead(404);res.end();}
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  let browser;
+  try{
+    browser=await chromium.launch({...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{channel:'chrome'}),headless:true});
+    const page=await browser.newPage({viewport:{width:440,height:600},deviceScaleFactor:2});
+    const errors=[];page.on('pageerror',error=>errors.push(error.message));
+    const click=async name=>{await page.getByRole('button',{name,exact:true}).click();};
+    const waitStatus=async text=>{await page.locator('#status').filter({hasText:text}).waitFor();};
+    const snapshot=async name=>{await page.screenshot({path:path.join(root,`docs/${name}.png`)});};
+    await page.goto(`http://127.0.0.1:${server.address().port}/popup.html`);
+    await page.getByRole('button',{name:'Focus Medical',exact:true}).waitFor();
+    await snapshot('popup');
+    await page.keyboard.press('/');assert.equal(await page.locator('#search').evaluate(el=>el===document.activeElement),true);
+    await page.getByRole('searchbox').fill('example.org');assert.equal(await page.locator('.tab').count(),1);
+    await page.getByRole('searchbox').fill('');
+    await page.getByRole('checkbox',{name:'Select Research with ChatGPT',exact:true}).check();
+    await page.getByLabel('Destination task').selectOption('medical');await click('Move');await waitStatus('Moved 1 tabs');
+    assert.equal(await page.evaluate(()=>fixture.tabs.find(tab=>tab.id===5).groupId),10);
+    await click('Add link to Medical');await page.getByLabel('Website URL').fill('https://example.org/paper');await click('Add link');await waitStatus('Link added');
+    assert.equal(await page.evaluate(()=>fixture.tabs.at(-1).groupId),10);
+    await click('Focus Medical');await page.locator('#focus-banner').waitFor();
+    assert.equal(await page.evaluate(()=>fixture.groups.find(group=>group.id===12).collapsed),true);
+    await click('Exit focus');await page.locator('#focus-banner').waitFor({state:'hidden'});
+    assert.equal(await page.evaluate(()=>fixture.groups.find(group=>group.id===12).collapsed),false);
+    await click('Save Medical collection');await waitStatus('Saved 4 links');
+    await page.locator('[data-view="saved"]').click();await page.getByText('Your saved collections',{exact:true}).waitFor();
+    await snapshot('saved');await click('Restore Medical');await waitStatus('already in this task');
+    await page.locator('[data-view="themes"]').click();assert.equal(await page.locator('.theme-card').count(),12);
+    await click('Preview Midnight Ink');await page.waitForFunction(()=>document.documentElement.style.colorScheme==='dark');
+    await snapshot('themes');await click('Apply theme');await waitStatus('Your task colors are unchanged');
+    assert.equal(await page.evaluate(()=>fixture.store.tasks[0].color),'#9878B5');
+    await page.locator('[data-view="live"]').click();await snapshot('dark');
+    await click('Edit Medical');await snapshot('editor');await page.getByLabel('Hex code').fill('#aabbcc');await click('Save task');await waitStatus('Task saved');
+    assert.equal(await page.evaluate(()=>fixture.store.tasks[0].color),'#aabbcc');
+    await page.locator('[data-view="themes"]').click();await click('Preview Ocean Air');await page.getByRole('checkbox',{name:'Also recolor my task groups'}).check();await click('Apply theme');await waitStatus('Theme and task palette applied');
+    assert.equal(await page.evaluate(()=>fixture.store.tasks[0].color),'#689fc6');
+    await page.reload();await page.getByRole('button',{name:'Focus Medical',exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>document.documentElement.style.getPropertyValue('--paper')),'#eff5fa');
+    await click('Add task');await page.getByLabel('Task name',{exact:true}).fill('Research');await click('Save task');await waitStatus('Task saved');
+    assert.equal(await page.locator('.task-name').filter({hasText:'Research'}).count(),1);
+    // Check all bundled appearances for width overflow and successful preview.
+    await page.locator('[data-view="themes"]').click();
+    for(const name of ['Claude Paper','Sage Garden','Ocean Air','Lavender Study','Rose Quartz','Desert Sand','Fresh Mint','Peach Morning','Midnight Ink','Forest Night','Velvet Plum','Graphite']){
+      await click(`Preview ${name}`);
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>440),false,name);
+    }
+    assert.deepEqual(errors,[]);
+    console.log('UI integration passed: real worker + popup, mixed tabs, domain search, bulk move, research link, focus restore, collection save/restore, theme persistence, palette opt-in, editor, 12 theme layouts.');
+  }finally{if(browser)await browser.close();server.close();}
+})().catch(error=>{console.error(error);process.exit(1);});
