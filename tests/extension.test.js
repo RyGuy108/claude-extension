@@ -157,3 +157,12 @@ test('collection limits and empty tasks return useful errors without modifying s
   storage.collections=Array.from({length:50},(_,id)=>({id:String(id)}));
   const result=await send('saveCollection',{taskId:'medical'});assert.match(result.error,/50/);assert.equal(storage.collections.length,50);
 });
+test('Claude content scripts cannot invoke management actions or retrieve settings',async()=>{
+  const listener=chrome.runtime.onMessage.listeners[0];let called=false;
+  const sender={id:'test',frameId:0,url:'https://claude.ai/chat/one',tab:{id:1}};
+  assert.equal(listener({type:'delete',taskId:'medical'},sender,()=>{called=true;}),undefined);
+  assert.equal(called,false);assert.equal(storage.tasks.length,3);
+  const response=await new Promise(resolve=>listener({type:'insightConfig'},sender,resolve));
+  assert.deepEqual(response.data,{enabled:false,quietSeconds:60});
+  assert.equal(listener({type:'insightConfig'},{...sender,url:'https://evil.test'},()=>{called=true;}),undefined);
+});

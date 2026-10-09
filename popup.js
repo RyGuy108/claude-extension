@@ -1,5 +1,6 @@
 import {COLORS, groupTitle, isClaude, domain, nearestColor} from './model.js';
 import {THEMES, getTheme} from './themes.js';
+import {mountInsights} from './insights-ui.js';
 
 const $ = id => document.getElementById(id);
 let state, windowId, activeId, editingId, linkTaskId;
@@ -180,7 +181,7 @@ for (const name of Object.keys(COLORS)) { const option=node('option','',name[0].
 for (const button of document.querySelectorAll('[data-view]')) button.onclick=()=>{
   view=button.dataset.view; previewTheme=null; $('apply-palette').checked=false; status('');
   for(const item of document.querySelectorAll('[data-view]')) {if(item===button)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');}
-  for(const name of ['live','saved','themes']) $(`${name}-view`).hidden=name!==view;
+  for(const name of ['live','saved','themes','insights']) $(`${name}-view`).hidden=name!==view;
   if(state)render();
   document.querySelector('main').scrollTop=0;
 };
@@ -233,5 +234,7 @@ try {
   const current=state.tabs.find(tab=>tab.id===activeId); expanded.add(taskOf(current || {})?.id || state.tasks[0]?.id); renderLive();
   let timer;
   const schedule=()=>{clearTimeout(timer);timer=setTimeout(()=>refresh().catch(error=>status(error.message)),150);};
-  for(const event of [chrome.tabs.onUpdated,chrome.tabs.onRemoved,chrome.tabs.onCreated,chrome.tabs.onActivated,chrome.tabs.onAttached,chrome.tabs.onDetached,chrome.tabGroups.onUpdated,chrome.tabGroups.onRemoved,chrome.storage.onChanged]) event.addListener(schedule);
+  for(const event of [chrome.tabs.onUpdated,chrome.tabs.onRemoved,chrome.tabs.onCreated,chrome.tabs.onActivated,chrome.tabs.onAttached,chrome.tabs.onDetached,chrome.tabGroups.onUpdated,chrome.tabGroups.onRemoved]) event.addListener(schedule);
+  chrome.storage.onChanged.addListener(changes=>{if(!changes || Object.keys(changes).some(key=>!key.startsWith('insight')&&key!=='focusTimer'))schedule();});
+  await mountInsights({send,status,tasks:()=>state.tasks});
 } catch(error) {status(error.message);$('current-title').textContent='Could not load tabs. Reopen the popup to retry.';}

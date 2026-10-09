@@ -4,7 +4,7 @@
 <body>
 <header><div class="brand"><span class="brand-mark" aria-hidden="true">✳</span><span>task colors <small>Claude & beyond</small></span></div><button id="add" class="icon" aria-label="Add task" title="Add task">＋</button></header>
 <section class="intro"><p class="eyebrow">LESS SCATTER. MORE SPACE.</p><h1>A place for every thought.</h1><p id="summary">Gathering your tabs…</p></section>
-<nav aria-label="Workspace views"><button data-view="live" aria-current="page">Workspace</button><button data-view="saved">Saved <span id="saved-count">0</span></button><button data-view="themes">Themes</button></nav>
+<nav aria-label="Workspace views"><button data-view="live" aria-current="page">Workspace</button><button data-view="saved">Saved <span id="saved-count">0</span></button><button data-view="themes">Themes</button><button data-view="insights">Insights</button></nav>
 <main>
 <section id="live-view">
   <section class="current"><div><span class="label">CURRENT TAB</span><p id="current-title">Loading…</p></div><label class="sr-only" for="current-task">Assign current tab to task</label><select id="current-task" disabled><option>Choose a task</option></select></section>
@@ -16,6 +16,18 @@
 </section>
 <section id="saved-view" hidden><div class="view-heading"><h2>Your saved collections</h2><p>Pick up where you left off. Saved links stay on this device.</p></div><div id="collections"></div></section>
 <section id="themes-view" hidden><div class="view-heading"><h2>Make space your own.</h2><p>Preview a look. Keep the colors you already know.</p></div><div id="theme-grid"></div><div class="theme-apply"><label class="toggle-label"><input id="apply-palette" type="checkbox">Also recolor my task groups</label><p class="help">Unchecked preserves your task colors. Chrome uses its nearest supported tab color.</p><button id="apply-theme" class="primary">Apply theme</button></div></section>
+<section id="insights-view" hidden>
+  <div class="view-heading"><h2>A clearer picture of your time.</h2><p>Patterns to reflect on, not a productivity grade.</p></div>
+  <div class="insight-controls"><label class="toggle-label"><input id="tracking-enabled" type="checkbox">Measure locally</label><select id="insight-range" aria-label="Statistics period"><option value="1">Today</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select></div>
+  <p id="tracking-status" class="help">Tracking is off. Enable to begin.</p>
+  <div class="stat-grid"><div class="stat"><span>Quiet viewing</span><strong id="quiet-share">—</strong><small>of observed Claude time</small></div><div class="stat"><span>Claude foreground</span><strong id="claude-time">0m</strong><small>focused window only</small></div></div>
+  <div id="time-bar" class="time-bar" aria-label="Claude time breakdown"></div><div id="time-legend"></div>
+  <p class="help">Quiet means no recent input. It can include reading, thinking, or waiting—not necessarily wasted time.</p>
+  <div class="stat-grid minor"><div class="stat"><span>Send attempts</span><strong id="send-attempts">0</strong><small>best-effort detection</small></div><div class="stat"><span>Chat-tab switches</span><strong id="chat-switches">0</strong><small>within a 30-second gap</small></div><div class="stat"><span>Time organizing</span><strong id="organizer-time">0m</strong><small id="organizer-share">of Claude + organizer time</small></div><div class="stat"><span>Composing share</span><strong id="composing-share">—</strong><small>recent editor input</small></div></div>
+  <h3 class="insight-heading">Claude time by task</h3><div id="task-times"></div>
+  <section class="focus-clock"><div><h3 class="insight-heading">One focused block</h3><p id="timer-status">Choose a little time for one thing.</p></div><div class="timer-controls"><select id="timer-length" aria-label="Focus block length"><option value="15">15 min</option><option value="25" selected>25 min</option><option value="45">45 min</option></select><button id="timer-start">Start</button><button id="timer-stop" hidden>Clear</button></div><p class="help">A wall-clock timer. Check here when you return; no alerts or tab changes.</p></section>
+  <details class="measurement-help"><summary>How this is measured & privacy</summary><p>Only a focused Claude tab or this organizer is counted at a time. Composing means editor input in the last 15 seconds; viewing / interaction includes the initial grace period after focus and time since clicks, keys, or scrolling. Locked screens, other apps, background tabs, private windows, and long sampling gaps are excluded. Timing is approximate.</p><label>Quiet after <select id="quiet-threshold"><option value="30">30 seconds</option><option value="60" selected>60 seconds</option><option value="120">2 minutes</option></select></label><p>Send attempts detect supported send controls or Enter in the editor; they do not confirm Claude received a prompt. No prompt text, keystroke values, chat titles, or URLs are saved in these statistics. Daily totals stay on this device for 30 days. Pause anytime with the switch above.</p><button id="clear-insights" class="danger">Clear statistics</button></details>
+</section>
 </main>
 <div id="status" role="status" aria-live="polite"></div>
 <footer><label class="toggle-label"><input id="auto" type="checkbox"><span>Auto-group Claude titles</span></label><span class="local">● Local & private</span></footer>

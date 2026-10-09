@@ -59,7 +59,24 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
       await click(`Preview ${name}`);
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>440),false,name);
     }
+    await page.locator('[data-view="insights"]').click();
+    await page.getByRole('checkbox',{name:'Measure locally'}).check();
+    await page.waitForFunction(()=>fixture.store.insightConfig?.enabled===true);
+    await page.getByRole('button',{name:'Start',exact:true}).click();
+    await page.waitForFunction(()=>fixture.store.focusTimer?.minutes===25);
+    const key=await page.evaluate(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;});
+    await page.evaluate(key=>fixture.store.insightDays={[key]:{composing:600000,interacting:900000,quiet:300000,organizer:120000,attempts:8,switches:3,tasks:{medical:1800000}}},key);
+    await page.waitForFunction(()=>document.getElementById('quiet-share').textContent==='17%');
+    await page.locator('main').evaluate(el=>el.scrollTop=0);
+    await snapshot('insights');
+    await page.getByText('How this is measured & privacy',{exact:true}).click();
+    await page.getByLabel('Quiet after').selectOption('120');
+    await page.waitForFunction(()=>fixture.store.insightConfig?.quietSeconds===120);
+    await page.getByRole('button',{name:'Clear statistics',exact:true}).click();
+    await page.waitForFunction(()=>document.getElementById('send-attempts').textContent==='0');
+    await page.getByRole('checkbox',{name:'Measure locally'}).uncheck();
+    await page.waitForFunction(()=>fixture.store.insightConfig?.enabled===false);
     assert.deepEqual(errors,[]);
-    console.log('UI integration passed: real worker + popup, mixed tabs, domain search, bulk move, research link, focus restore, collection save/restore, theme persistence, palette opt-in, editor, 12 theme layouts.');
+    console.log('UI integration passed: real worker + popup, mixed tabs, domain search, bulk move, research link, focus restore, collection save/restore, theme persistence, palette opt-in, editor, 12 theme layouts, Insights opt-in/threshold/clear, and focus timer.');
   }finally{if(browser)await browser.close();server.close();}
 })().catch(error=>{console.error(error);process.exit(1);});

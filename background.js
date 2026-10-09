@@ -1,5 +1,7 @@
 import {DEFAULTS, isClaude, isWebUrl, groupTitle, validateTask, matchTask, nearestColor} from './model.js';
 import {THEMES} from './themes.js';
+import {createInsights} from './insights.js';
+const insights=createInsights(chrome);
 
 // One mutation at a time avoids duplicate native groups and lost storage updates.
 let queue = Promise.resolve();
@@ -188,8 +190,12 @@ async function dispatch(message) {
   return {};
 }
 chrome.runtime.onMessage.addListener((message,sender,respond) => {
-  if (sender.id !== chrome.runtime.id || sender.tab) return;
-  serialize(()=>dispatch(message)).then(data=>respond({ok:true,data}),error=>respond({ok:false,error:error.message}));
+  if (sender.id !== chrome.runtime.id) return;
+  const telemetry=['insightConfig','insightPulse','insightBoundary'].includes(message.type);
+  if (sender.tab && !telemetry) return;
+  if (telemetry && (!sender.tab || sender.frameId!==0 || !isClaude(sender.url))) return;
+  serialize(()=>message.type?.startsWith('insight') ? insights.handle(message,sender) : dispatch(message))
+    .then(data=>respond({ok:true,data}),error=>respond({ok:false,error:error.message}));
   return true;
 });
 chrome.runtime.onInstalled.addListener(()=>{serialize(settings).catch(console.error);});
@@ -204,3 +210,13 @@ chrome.tabs.onUpdated.addListener((tabId,change,tab) => {
     if (task) await assign(tabId,task);
   }).catch(console.error);
 });
+
+// Drop timing checkpoints on foreground changes: a later pulse starts a fresh interval.
+for (const event of [chrome.tabs.onActivated,chrome.windows?.onFocusChanged]) {
+  event?.addListener(()=>{serialize(()=>insights.boundary()).catch(console.error);});
+}
+chrome.idle?.onStateChanged.addListener(state=>{
+  if(state==='locked') serialize(()=>insights.boundary()).catch(console.error);
+});
+// Content scripts receive only their minimal config through the guarded message route.
+chrome.storage.local.setAccessLevel?.({accessLevel:'TRUSTED_CONTEXTS'}).catch(console.error);

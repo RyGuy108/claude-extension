@@ -16,9 +16,11 @@ window.fixture=fixture;
 const copy=value=>structuredClone(value);
 window.chrome={
   runtime:{id:'fixture',onMessage:event(),onInstalled:event(),sendMessage(message){return new Promise(resolve=>chrome.runtime.onMessage.listeners[0](message,{id:'fixture'},resolve));}},
-  windows:{async getCurrent(){return {id:1};}},
-  storage:{onChanged:event(),local:{async get(){return copy(fixture.store);},async set(value){Object.assign(fixture.store,copy(value));localStorage.setItem('fixture-settings',JSON.stringify(fixture.store));chrome.storage.onChanged.emit();}},session:{async get(key){return {[key]:copy(fixture.session[key])};},async set(value){Object.assign(fixture.session,copy(value));},async remove(key){delete fixture.session[key];}}},
+  windows:{async getCurrent(){return {id:1};},async getLastFocused(){return {id:1,focused:true};},onFocusChanged:event()},
+  idle:{async queryState(){return 'active';},onStateChanged:event()},
+  storage:{onChanged:event(),local:{async get(){return copy(fixture.store);},async remove(key){delete fixture.store[key];},async set(value){Object.assign(fixture.store,copy(value));localStorage.setItem('fixture-settings',JSON.stringify(fixture.store));chrome.storage.onChanged.emit();}},session:{async get(key){return {[key]:copy(fixture.session[key])};},async set(value){Object.assign(fixture.session,copy(value));},async remove(key){delete fixture.session[key];}}},
   tabs:{onUpdated:event(),onRemoved:event(),onCreated:event(),onActivated:event(),onAttached:event(),onDetached:event(),
+    async sendMessage(){},
     async query(query){return copy(fixture.tabs.filter(tab=>Object.entries(query).every(([key,value])=>tab[key]===value)));},
     async get(id){const tab=fixture.tabs.find(tab=>tab.id===id);if(!tab)throw Error('Tab closed');return copy(tab);},
     async update(id,patch){const tab=fixture.tabs.find(tab=>tab.id===id);if(!tab)throw Error('Tab closed');if(patch.active)fixture.tabs.filter(other=>other.windowId===tab.windowId).forEach(other=>other.active=false);Object.assign(tab,patch);},

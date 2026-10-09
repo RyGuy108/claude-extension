@@ -11,9 +11,35 @@ Give every task a home: Claude chats, other AI tools, research pages, and useful
 3. Select the folder containing `manifest.json`. Pin **Task Colors for Claude**.
 4. Open a regular website and click the extension. The default shortcut is **Alt+Shift+C** (Option+Shift+C on Mac); customize it at `chrome://extensions/shortcuts`.
 
-No build, account, subscription, or API key is required. Chrome 102+ is supported. Keep the extension folder in place. To update an existing installation, replace its files or pull the repository, then click **Reload** on its extension card.
+No build, account, subscription, or API key is required. Chrome 116+ is supported. Keep the extension folder in place. To update an existing installation, replace its files or pull the repository, then click **Reload** on its extension card.
 
 **Version 1.1 adds the `tabs` permission** to display titles and URLs for research pages and other AI tools. Chrome may ask you to accept the updated permission or re-enable the extension. Existing task definitions, custom colors, and native groups are preserved. The extension does not read page bodies or chat messages.
+
+## Version 1.2: local productivity Insights
+
+Open **Insights → Measure locally** to opt in. Tracking is off by default, including after upgrading. Reload existing Claude tabs after reloading the extension so the event listener is available. Chrome may ask you to accept Claude-page access and the new `idle` permission. Chrome 116+ is now required.
+
+- **Quiet-viewing share:** percentage of observed foreground Claude time with no recent input. Choose 30, 60, or 120 seconds (default 60). This may be reading, thinking, waiting, or inactivity; it cannot tell whether you are staring or being unproductive.
+- **Composing share:** time within 15 seconds of input in a recognized Claude editor. It is a recent-input estimate, not an exact typing stopwatch.
+- **Viewing / interaction:** time within the inactivity threshold after focus, clicks, keys, or user scrolling, including the initial viewing grace period.
+- **Send attempts:** best-effort recognition of supported send buttons or unmodified Enter in a recognized editor. Shift+Enter, IME composition, repeated keys, and rapid duplicate signals are ignored. Empty, failed, or intercepted sends may count; these are not confirmed prompts, responses, or quality measures. Interface changes can reduce detection accuracy.
+- **Chat-tab switches:** transitions between observed Claude tab IDs within 30 seconds. Navigating chats within one tab is not counted.
+- **Time organizing:** time the extension popup is foreground, shown separately and as a percentage of observed Claude-plus-organizer time. It is never counted simultaneously as Claude time.
+- **Claude time by task:** the same foreground durations attributed to your task groups. It does not monitor research-site content or calculate all-site task time.
+- **Focus block:** a 15-, 25-, or 45-minute wall-clock timer that retains its deadline when the popup closes. It runs independently of tracking, never changes your tabs, and displays completion the next time you check. No notifications or automatic task completion.
+
+Today, 7-day, and 30-day summaries use local calendar days. Timing uses approximately five-second samples: short visits and partial intervals can be omitted. Background tabs, unfocused windows, locked screens, private windows, and gaps longer than 15 seconds are excluded. Device idle is classified as quiet, not proof of absence. Overlapping Claude and organizer samples are suppressed. Sleep/worker interruption can undercount time; there is no catch-up credit for unobserved gaps.
+
+Daily aggregates stay in local storage. Only temporary checkpoints use tab IDs; no prompt text, keystroke values, chat URLs, or chat titles are stored in Insights. The rolling 30-day window is pruned on the next sample or Insights refresh. Pause using **Measure locally**; clear totals under **How this is measured & privacy**. Clearing leaves tasks, collections, tracking preference, and focus timer unchanged.
+
+<img src="docs/insights.png" width="440" alt="Insights showing quiet share, composing time, send attempts, and organizer time using example data">
+
+Measurement and technical references:
+
+- [RescueTime: how tracking works](https://help.rescuetime.com/article/245-how-rescuetime-works): foreground activity and interpreting time in context.
+- [Clockify browser extension](https://clockify.me/help/apps/chrome-extension): configurable idle handling and focus timers.
+- [Chrome idle API](https://developer.chrome.com/docs/extensions/reference/api/idle): active, idle, and locked are input/lock states—not attention measurements.
+- [Chrome worker lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle) and [message security](https://developer.chrome.com/docs/extensions/develop/concepts/messaging#content-scripts-are-less-trustworthy): persisted checkpoints and a restricted content-script route.
 
 ## A simple workspace
 
@@ -68,7 +94,7 @@ No automatic tab closing, background suspension, new-tab replacement, or cloud a
 
 ## Architecture and persistence
 
-Dependency-free Manifest V3, an event-driven service worker, native Chrome tab groups, and plain HTML/CSS/JavaScript. Worker mutations are serialized to prevent duplicate group creation or lost settings. No content scripts, backend, external fonts, remote code, or page scraping.
+Dependency-free Manifest V3, an event-driven service worker, native Chrome tab groups, and plain HTML/CSS/JavaScript. Worker mutations are serialized to prevent duplicate group creation or lost settings. No backend, external fonts, or remote code. An optional Claude-only content script observes event metadata for local Insights; it does not extract message contents.
 
 Task definitions, theme preference, and explicitly saved collections use local storage. Focus snapshots use session storage, so ephemeral group IDs are not reused across browser restarts. Native groups are recognized by their exact `Task name · Claude` title, retained for compatibility with version 1.0. A group with that exact title is treated as the task, including mixed website groups. Renaming it directly in Chrome disconnects it until tabs are reassigned. Chrome controls which live tabs and groups are restored after restart; saved collections are separate snapshots.
 
@@ -80,9 +106,11 @@ The visual direction takes inspiration from [Claude](https://claude.ai)’s warm
 
 - `tabs`: query tab titles and URLs to display and organize websites. Chrome may describe this permission as access to browsing history; the extension does not request the `history` API or query past browsing history.
 - `tabGroups`: query, name, color, and collapse native groups.
-- `storage`: local configuration and saved collections; session-only focus state.
+- `storage`: local configuration, saved collections, optional daily Insights, and session-only focus/timing state.
+- `idle`: distinguish device input inactivity and screen lock.
+- Claude-only content script: observe activity event metadata when tracking is enabled; never read editor values or message text.
 
-No telemetry, analytics, server uploads, or page/chat content access. URLs and titles are saved only when you explicitly save a collection. Opening or restoring a link navigates Chrome to that website normally. [Full privacy details](PRIVACY.md).
+No server uploads or remote analytics. Optional local Insights aggregate event counts and durations without recording prompt text or page contents. URLs and titles are saved only when you explicitly save a collection. Opening or restoring a link navigates Chrome to that website normally. [Full privacy details](PRIVACY.md).
 
 ## Development and verification
 
@@ -91,7 +119,7 @@ npm test
 npm run check
 ```
 
-Node.js 22+ is required for tests, not for installing the extension. The 25 behavior tests cover mixed groups, v1 migration, protocol restrictions, matching, concurrent changes, multi-window behavior, bulk operations, focus restoration, themes, and collection storage/restore. CI runs them on every push and pull request.
+Node.js 22+ is required for tests, not for installing the extension. The automated behavior tests cover mixed groups, v1 migration, protocol restrictions, matching, concurrent changes, multi-window behavior, bulk operations, focus restoration, themes, and collection storage/restore. CI runs them on every push and pull request.
 
 Optional browser integration test, with Playwright and Google Chrome available:
 
